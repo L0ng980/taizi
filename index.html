@@ -1,0 +1,1455 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>🎰 太子老虎机</title>
+<style>
+/* ── 全局 ── */
+*{margin:0;padding:0;box-sizing:border-box;}
+:root{--gold:#ffd700;--red:#ff4400;--bg:#0a0a0a;--card:#1a1a2e;--text:#e0e0e0;}
+html,body{height:100%;}
+body{background:var(--bg);color:var(--text);font-family:'Segoe UI','Microsoft YaHei',sans-serif;display:flex;flex-direction:column;align-items:center;justify-content:center;}
+
+/* ── 认证 ── */
+#auth-screen{width:340px;padding:32px 28px;background:var(--card);border-radius:18px;box-shadow:0 0 40px #ffd70022;display:block;}
+#auth-screen.hidden{display:none;}
+.auth-title{text-align:center;font-size:1.4rem;color:var(--gold);margin-bottom:18px;}
+.auth-tab{display:inline-block;padding:6px 18px;margin:0 4px;border:none;background:none;color:#888;font-size:0.9rem;cursor:pointer;border-bottom:2px solid transparent;transition:.2s;}
+.auth-tab.active{color:var(--gold);border-color:var(--gold);}
+.auth-form{display:none;flex-direction:column;gap:10px;margin-top:16px;}
+.auth-form.show{display:flex !important;}
+.auth-input{width:100%;padding:10px 12px;border:1px solid #333;border-radius:8px;background:#0a0a0a;color:#fff;font-size:0.95rem;outline:none;transition:.2s;}
+.auth-input:focus{border-color:var(--gold);}
+.auth-btn{width:100%;padding:10px;border:none;border-radius:8px;background:linear-gradient(135deg,var(--gold),var(--red));color:#1a0a0a;font-size:1rem;font-weight:700;cursor:pointer;transition:.2s;}
+.auth-btn:hover{filter:brightness(1.15);}
+.auth-msg{text-align:center;font-size:0.8rem;min-height:1.2em;}
+.auth-msg.err{color:var(--red);}
+.auth-msg.ok{color:#00cc66;}
+.auth-footer{margin-top:14px;text-align:center;font-size:0.7rem;color:#555;}
+
+/* 验证码 */
+.captcha-row{display:flex;align-items:center;gap:8px;}
+.captcha-canvas{border:1px solid #333;border-radius:6px;cursor:pointer;height:40px;}
+.captcha-refresh{width:36px;height:36px;border:1px solid #333;border-radius:6px;background:none;color:#aaa;font-size:1rem;cursor:pointer;display:flex;align-items:center;justify-content:center;transition:.2s;}
+.captcha-refresh:hover{border-color:var(--gold);color:var(--gold);}
+
+/* ── 游戏界面 ── */
+#game-screen{display:none;width:100%;flex-direction:column;align-items:center;}
+#game-screen.show{display:flex !important;}
+
+/* 顶栏 */
+#top-bar{width:100%;max-width:900px;display:flex;align-items:center;padding:8px 16px;background:#111;border-bottom:1px solid #222;font-size:0.8rem;flex-shrink:0;}
+#tb-username{flex:1;color:var(--gold);}
+#tb-phase{padding:4px 10px;border-radius:20px;background:#ffd70018;color:var(--gold);font-size:0.72rem;margin-right:8px;}
+.tb-btn{padding:5px 12px;border:1px solid #333;border-radius:6px;background:none;color:#ccc;font-size:0.75rem;cursor:pointer;transition:.2s;}
+.tb-btn:hover{border-color:var(--gold);color:var(--gold);}
+
+/* P点栏 */
+.pbar{width:100%;max-width:900px;display:flex;padding:8px 12px;gap:8px;background:#111;border-bottom:1px solid #222;flex-shrink:0;}
+.pbar-item{flex:1;text-align:center;}
+.pbar-label{font-size:0.65rem;color:#666;margin-bottom:2px;}
+.pbar-val{font-size:1rem;font-weight:700;color:var(--gold);}
+.pbar-val.neg{color:var(--red);}
+
+/* 主体 */
+.main-wrap{display:flex;gap:12px;padding:12px;max-width:900px;width:100%;flex-wrap:wrap;justify-content:center;}
+
+/* 网格 */
+.grid-wrap{flex:1;min-width:260px;max-width:420px;aspect-ratio:6/8;position:relative;}
+.grid{width:100%;height:100%;display:grid;gap:3px;}
+
+.cell{display:flex;flex-direction:column;align-items:center;justify-content:center;background:#16162a;border-radius:6px;transition:all .25s;position:relative;overflow:hidden;aspect-ratio:1;}
+.cell.empty{background:transparent;}
+.cell.lit{background:#ffd70088;box-shadow:0 0 18px #ffd700ee;z-index:2;}
+.cell.winner{background:#ffd70033;box-shadow:0 0 20px #ffd700aa;z-index:3;animation:winPulse .6s ease infinite alternate;}
+.cell.has-bet{border:2px solid #ffd70066;}
+@keyframes winPulse{from{box-shadow:0 0 12px #ffd70088;}to{box-shadow:0 0 28px #ffd700cc;}}
+
+.cell-icon{font-size:clamp(1rem,3.5vw,1.6rem);}
+.cell-name{font-size:clamp(0.45rem,1.2vw,0.6rem);color:#aaa;}
+.cell-odds{font-size:clamp(0.45rem,1vw,0.55rem);color:var(--gold);}
+.cell-bet{position:absolute;bottom:2px;right:3px;font-size:0.5rem;color:#ff8800;font-weight:700;}
+
+/* 右侧面板 */
+.right-panel{width:240px;display:flex;flex-direction:column;gap:10px;}
+.panel{background:var(--card);border-radius:12px;padding:12px;}
+.panel-title{font-size:0.85rem;color:var(--gold);margin-bottom:8px;}
+
+/* 下注区 */
+.bet-row{display:flex;align-items:center;gap:6px;padding:5px 6px;border-radius:6px;transition:.2s;margin-bottom:4px;}
+.bet-row.has-bet{background:#ffd7000a;}
+.br-icon{font-size:1.1rem;}
+.br-name{flex:1;font-size:0.72rem;color:#ccc;}
+.br-odds{font-size:0.65rem;color:var(--gold);min-width:32px;text-align:right;}
+.br-input{width:70px;padding:4px 6px;border:1px solid #333;border-radius:6px;background:#0a0a0a;color:var(--gold);font-size:0.75rem;text-align:center;outline:none;}
+.br-input:focus{border-color:var(--gold);}
+.br-input::-webkit-outer-spin-button,
+.br-input::-webkit-inner-spin-button{-webkit-appearance:none;margin:0;}
+.br-input[type=text]{-moz-appearance:textfield;}
+
+/* 充值 */
+.rc-row{display:flex;gap:6px;}
+.rc-input{flex:1;padding:6px 8px;border:1px solid #333;border-radius:6px;background:#0a0a0a;color:#fff;font-size:0.8rem;}
+.rc-btn{padding:6px 14px;border:none;border-radius:6px;background:linear-gradient(135deg,var(--gold),var(--red));color:#1a0a0a;font-size:0.75rem;font-weight:700;cursor:pointer;}
+
+/* 历史 */
+#hist-list{display:flex;flex-wrap:wrap;gap:4px;}
+.hist-item{font-size:0.65rem;padding:2px 6px;border-radius:4px;cursor:default;}
+.hist-item.w{background:#ffd70018;color:var(--gold);}
+.hist-item.l{background:#ff440018;color:var(--red);}
+
+/* 弹窗 */
+#overlay{position:fixed;top:0;left:0;width:100%;height:100%;background:#000000cc;display:none;align-items:center;justify-content:center;z-index:9999;}
+#overlay.show{display:flex !important;}
+.pop-box{background:var(--card);border-radius:18px;padding:32px 28px;text-align:center;box-shadow:0 0 60px #ffd70044;}
+.pop-icon{font-size:3rem;margin-bottom:8px;}
+.pop-title{font-size:1.3rem;color:var(--gold);font-weight:900;}
+.pop-title.w{color:var(--gold);}
+.pop-sub{margin-top:8px;font-size:0.85rem;color:#ccc;line-height:1.8;}
+.pop-ok{margin-top:18px;padding:8px 32px;border:none;border-radius:8px;background:linear-gradient(135deg,var(--gold),var(--red));color:#1a0a0a;font-size:0.9rem;font-weight:700;cursor:pointer;}
+
+/* 管理员后台 */
+#admin-overlay{position:fixed;top:0;left:0;width:100%;height:100%;background:#000000dd;display:none;align-items:center;justify-content:center;z-index:9998;}
+#admin-overlay.show{display:flex !important;}
+.admin-box{background:var(--card);border-radius:16px;padding:24px;width:460px;max-height:85vh;overflow-y:auto;}
+.admin-title{font-size:1.1rem;color:var(--gold);margin-bottom:14px;}
+.admin-section{margin-bottom:14px;}
+.admin-label{font-size:0.72rem;color:#888;margin-bottom:4px;}
+.admin-input,.admin-select{width:100%;padding:7px 10px;border:1px solid #333;border-radius:6px;background:#0a0a0a;color:#fff;font-size:0.8rem;margin-bottom:6px;}
+.admin-select option{background:#1a1a2e;}
+.admin-charge-btn{width:100%;padding:8px;border:none;border-radius:8px;background:linear-gradient(135deg,var(--gold),var(--red));color:#1a0a0a;font-size:0.85rem;font-weight:700;cursor:pointer;margin-top:4px;}
+.admin-close-btn{width:100%;padding:8px;border:1px solid #444;border-radius:8px;background:none;color:#aaa;font-size:0.8rem;cursor:pointer;margin-top:8px;transition:.2s;}
+.admin-close-btn:hover{border-color:var(--gold);color:var(--gold);}
+.admin-msg{text-align:center;font-size:0.78rem;min-height:1.2em;margin-top:6px;}
+.admin-msg.err{color:var(--red);}
+.admin-msg.ok{color:#00cc66;}
+
+.user-item{display:flex;align-items:center;gap:8px;padding:7px 8px;border-radius:6px;margin-bottom:4px;background:#111;}
+.ui-name{font-size:0.8rem;color:var(--gold);min-width:70px;}
+.ui-phase{font-size:0.65rem;color:#aaa;flex:1;}
+.ui-badge{padding:2px 8px;border-radius:10px;font-size:0.65rem;}
+.ui-badge.admin{background:#ffd70022;color:var(--gold);}
+.ui-badge:not(.admin){background:#333;color:#aaa;}
+.ui-bal{font-size:0.78rem;color:var(--gold);}
+
+.msg{margin-top:8px;text-align:center;font-size:0.78rem;min-height:1.4em;}
+.msg.win{color:var(--gold);}
+.msg.lose{color:var(--red);}
+.msg.info{color:#888;}
+
+#fw{position:fixed;top:0;left:0;width:100%;height:100%;pointer-events:none;z-index:9999;}
+</style>
+</head>
+<body>
+
+<!-- ═══ 认证界面 ═══ -->
+<div id="auth-screen">
+  <div class="auth-title">🎰 太子老虎机</div>
+  <div style="text-align:center;">
+    <button class="auth-tab active" id="tab-login" onclick="switchTab('login')">登 录</button>
+    <button class="auth-tab"        id="tab-reg"   onclick="switchTab('reg')">注 册</button>
+  </div>
+
+  <div class="auth-form show" id="form-login">
+    <input class="auth-input" id="login-user" placeholder="账号（2-16位）" autocomplete="username">
+    <input class="auth-input" id="login-pass" type="password" placeholder="密码" autocomplete="current-password">
+    <button class="auth-btn" onclick="doLogin()">登 录</button>
+    <div class="auth-msg" id="login-msg"></div>
+  </div>
+
+  <div class="auth-form" id="form-reg">
+    <input class="auth-input" id="reg-user"  placeholder="账号（2-16位中英文/数字）" autocomplete="username">
+    <input class="auth-input" id="reg-pass"  type="password" placeholder="密码（6-20位）" autocomplete="new-password">
+    <input class="auth-input" id="reg-pass2" type="password" placeholder="确认密码" autocomplete="new-password">
+    <div class="captcha-row">
+      <input class="auth-input" id="reg-captcha" placeholder="验证码" autocomplete="off" style="flex:1;">
+      <canvas class="captcha-canvas" id="captcha-canvas" width="120" height="40" title="点击刷新"></canvas>
+      <button class="captcha-refresh" onclick="generateCaptcha()" title="刷新">🔄</button>
+    </div>
+    <button class="auth-btn" onclick="doRegister()">注 册</button>
+    <div class="auth-msg" id="reg-msg"></div>
+  </div>
+
+  <div class="auth-footer">
+    登录即表示同意娱乐体验 · 数据存储于本地浏览器
+  </div>
+</div>
+
+<!-- ═══ 游戏界面 ═══ -->
+<div id="game-screen">
+  <!-- 顶栏 -->
+  <div id="top-bar">
+    <div id="tb-username">👤 玩家</div>
+    <div id="tb-phase"></div>
+    <button class="tb-btn" id="admin-entry" onclick="openAdmin()" style="display:none;">🛡️ 管理后台</button>
+    <button class="tb-btn" onclick="doLogout()">退出</button>
+  </div>
+
+  <!-- P点栏 -->
+  <div class="pbar">
+    <div class="pbar-item"><div class="pbar-label">余额</div><div class="pbar-val" id="pp-bal">0.00</div></div>
+    <div class="pbar-item"><div class="pbar-label">下注</div><div class="pbar-val" id="pp-bet">0.00</div></div>
+    <div class="pbar-item"><div class="pbar-label">盈亏</div><div class="pbar-val" id="pp-profit">+0.00</div></div>
+    <div class="pbar-item"><div class="pbar-label">中奖</div><div class="pbar-val" id="pp-win">—</div></div>
+  </div>
+
+  <!-- 主体 -->
+  <div class="main-wrap">
+    <!-- 网格 -->
+    <div class="grid-wrap">
+      <div class="grid" id="grid"></div>
+    </div>
+
+    <!-- 右侧面板 -->
+    <div class="right-panel">
+      <!-- 下注列表 -->
+      <div class="panel">
+        <div class="panel-title">🎯 下注区（每个符号独立输入P点）</div>
+        <div id="bet-list"></div>
+        <div style="display:flex;align-items:center;gap:8px;margin-top:8px;margin-bottom:6px;">
+          <span style="font-size:0.78rem;color:#aaa;">摇奖次数：</span>
+          <select id="roll-count" onchange="onRollCountChange()" style="padding:4px 8px;border:1px solid #333;border-radius:6px;background:#0a0a0a;color:var(--gold);font-size:0.78rem;outline:none;cursor:pointer;">
+            <option value="1">1 次（×1 费用）</option>
+            <option value="2" selected>2 次（×2 费用）</option>
+            <option value="3">3 次（×3 费用）</option>
+            <option value="4">4 次（×4 费用）</option>
+            <option value="5">5 次（×5 费用）</option>
+          </select>
+          <span id="roll-cost-info" style="font-size:0.65rem;color:#ff8800;">预计费用：<strong id="roll-cost-val">0.00</strong> P</span>
+        </div>
+        <div style="display:flex;gap:8px;margin-top:10px;">
+          <button id="spin-btn" onclick="doSpin()" style="flex:1;padding:12px;border:none;border-radius:10px;background:linear-gradient(135deg,var(--gold),var(--red));color:#1a0a0a;font-size:1.1rem;font-weight:900;cursor:pointer;letter-spacing:2px;">SPIN</button>
+          <button onclick="clearBets()" style="padding:12px 14px;border:1px solid #444;border-radius:10px;background:none;color:#aaa;font-size:0.85rem;cursor:pointer;transition:.2s;" onmouseover="this.style.borderColor='#ffd700';this.style.color='#ffd700';" onmouseout="this.style.borderColor='#444';this.style.color='#aaa';">清除</button>
+        </div>
+        <div class="msg" id="msg"></div>
+      </div>
+
+      <!-- 充值（仅管理员可见） -->
+      <div class="panel" id="recharge-panel" style="display:none;">
+        <div class="panel-title">💰 充值</div>
+        <div class="rc-row">
+          <input class="rc-input" id="rc-input" type="number" min="0.01" step="0.01" placeholder="P点数">
+          <button class="rc-btn" onclick="doRecharge()">充值</button>
+        </div>
+      </div>
+
+      <!-- 历史 -->
+      <div class="panel" id="hist-box">
+        <div class="panel-title">📜 历史记录</div>
+        <div id="hist-list" style="color:#444;font-size:0.7rem;">暂无记录</div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ═══ 管理员后台 ═══ -->
+<div id="admin-overlay">
+  <div class="admin-box">
+    <div class="admin-title">🛡️ 管理后台</div>
+
+    <div class="admin-section">
+      <div class="admin-label">所有用户（本浏览器）</div>
+      <div id="admin-user-list"></div>
+    </div>
+
+    <div class="admin-section">
+      <div class="admin-label">选择用户</div>
+      <select class="admin-select" id="admin-target-user">
+        <option value="">-- 选择用户 --</option>
+      </select>
+      <div class="admin-label" style="margin-top:6px;">P点数</div>
+      <input class="admin-input" id="admin-add-p" type="number" min="0.01" step="0.01" placeholder="添加P点数">
+      <button class="admin-charge-btn" onclick="adminAddP()">添加P点</button>
+    </div>
+
+    <div class="admin-section">
+      <div class="admin-label">选择用户</div>
+      <select class="admin-select" id="admin-deduct-user">
+        <option value="">-- 选择用户 --</option>
+      </select>
+      <div class="admin-label" style="margin-top:6px;">扣除P点数</div>
+      <input class="admin-input" id="admin-deduct-p" type="number" min="0.01" step="0.01" placeholder="扣除P点数">
+      <button class="admin-charge-btn" onclick="adminDeductP()" style="background:linear-gradient(135deg,#cc4400,#882200);">扣除P点</button>
+    </div>
+
+    <div class="admin-section">
+      <div class="admin-label">选择用户</div>
+      <select class="admin-select" id="admin-rate-user">
+        <option value="">-- 选择用户 --</option>
+      </select>
+      <div class="admin-label" style="margin-top:6px;">返奖率%</div>
+      <input class="admin-input" id="admin-rate-val" type="number" placeholder="返奖率%（可任意设置，如500、1000）">
+      <button class="admin-charge-btn" onclick="adminSetRate()">锁定</button>
+      <button class="admin-charge-btn" onclick="adminResetRate()" style="background:linear-gradient(135deg,#333,#555);">解除</button>
+    </div>
+
+    <div class="admin-section">
+      <div class="admin-label">选择用户（删除）</div>
+      <select class="admin-select" id="admin-del-user">
+        <option value="">-- 选择用户 --</option>
+      </select>
+      <button class="admin-charge-btn" onclick="adminDeleteUser()" style="background:linear-gradient(135deg,#cc2222,#881111);">删除用户</button>
+    </div>
+
+    <div class="admin-section">
+      <div class="admin-label">选择用户（改密）</div>
+      <select class="admin-select" id="admin-pw-user">
+        <option value="">-- 选择用户 --</option>
+      </select>
+      <div class="admin-label" style="margin-top:6px;">新密码</div>
+      <input class="admin-input" id="admin-pw-new" type="password" placeholder="新密码（6-20位）">
+      <button class="admin-charge-btn" onclick="adminChangePassword()">修改密码</button>
+    </div>
+
+    <div class="admin-msg" id="admin-msg"></div>
+    <button class="admin-close-btn" onclick="closeAdmin()">关闭后台</button>
+  </div>
+</div>
+
+<!-- ═══ 中奖弹窗 ═══ -->
+<div id="overlay">
+  <div class="pop-box">
+    <div class="pop-icon" id="pop-icon">🎉</div>
+    <div class="pop-title w" id="pop-title">大奖！</div>
+    <div class="pop-sub" id="pop-sub"></div>
+    <button class="pop-ok" onclick="closePopup()">好的</button>
+  </div>
+</div>
+
+<!-- 烟花 -->
+<canvas id="fw"></canvas>
+
+<script>
+// ============================================================
+//  加密存储的管理员凭据
+//  用户名通过 Base64 编码，密码通过 SHA-256 哈希
+// ============================================================
+const _AK = atob('5bm_5bGx'); // 解码后为管理员账号
+const _AH = '8d969eef6ecad3c29a3a629280e686cf0c3f5d5a86aff3ca12020c923adc6c92'; // SHA-256 哈希
+
+// ============================================================
+//  常量与配置
+// ============================================================
+const G_C = 6, G_R = 8;
+const RING_COST_MULTIPLIER = { 1: 1, 2: 2, 3: 3, 4: 4, 5: 5 };
+const DEFAULT_PAYOUT_RATE = 0.80;
+const MIN_PAYOUT_RATE = 0.10;
+const MAX_PAYOUT_RATE = 0.90;
+const TRACK_GAMES = 10;
+
+const RING_SYMS_CFG = [
+  { id:'seven',  e:'7️⃣', name:'幸运7',  odds:24, count:1 },
+  { id:'bar',    e:'🎰', name:'BAR',    odds:12, count:2 },
+  { id:'bell',   e:'🔔', name:'铃铛',   odds:8,  count:4 },
+  { id:'cherry', e:'🍒', name:'樱桃',   odds:8,  count:3 },
+  { id:'lemon',  e:'🍋', name:'柠檬',   odds:4,  count:6 },
+  { id:'orange', e:'🍊', name:'橙子',   odds:6,  count:4 },
+  { id:'grape',  e:'🍇', name:'葡萄',   odds:12, count:2 },
+  { id:'melon',  e:'🍈', name:'哈密瓜', odds:12, count:2 },
+];
+
+// ── 状态变量 ──
+let currentUser = null;
+let curUser = null;
+let pBalance = 20.00;
+let profit = 0.00;
+let bets = {};
+let spinning = false;
+let litIdx = -1;
+let gameHistory = [];
+let RING_SYMS = RING_SYMS_CFG;
+let ringSyms = [];
+let RING_LEN = 0;
+let RING_ORDER = [];
+
+// ============================================================
+//  环形顺序
+// ============================================================
+function buildRingOrder() {
+  const order = [];
+  for (let c = 0; c < G_C; c++)        order.push([0, c]);
+  for (let r = 1; r < G_R-1; r++)      order.push([r, G_C-1]);
+  for (let c = G_C-1; c >= 0; c--)     order.push([G_R-1, c]);
+  for (let r = G_R-2; r >= 1; r--)     order.push([r, 0]);
+  return order;
+}
+
+function buildRingSyms() {
+  const pool = [];
+  RING_SYMS.forEach(function(s) {
+    for (let i = 0; i < s.count; i++) {
+      pool.push({ id: s.id, e: s.e, name: s.name, odds: s.odds });
+    }
+  });
+  for (let i = pool.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    const tmp = pool[i]; pool[i] = pool[j]; pool[j] = tmp;
+  }
+  return pool;
+}
+
+RING_ORDER = buildRingOrder();
+RING_LEN = RING_ORDER.length;
+
+// ============================================================
+//  SHA-256 工具
+// ============================================================
+async function sha256(msg) {
+  const buf = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(msg));
+  return Array.from(new Uint8Array(buf)).map(function(b) { return b.toString(16).padStart(2, '0'); }).join('');
+}
+
+// ============================================================
+//  数据层（localStorage）
+// ============================================================
+function getUsers() {
+  try { return JSON.parse(localStorage.getItem('tiger_users') || '[]'); }
+  catch(e) { return []; }
+}
+
+function saveUsers(users) {
+  localStorage.setItem('tiger_users', JSON.stringify(users));
+}
+
+function getUserByName(name) {
+  return getUsers().find(function(u) { return u.username === name; });
+}
+
+function updateUser(name, updates) {
+  const users = getUsers();
+  const idx = users.findIndex(function(u) { return u.username === name; });
+  if (idx === -1) return null;
+  Object.assign(users[idx], updates);
+  saveUsers(users);
+  return users[idx];
+}
+
+function ensureAdmin() {
+  let users = getUsers();
+  let admin = users.find(function(u) { return u.username === _AK; });
+  if (!admin) {
+    admin = {
+      id: 1, username: _AK, passwordHash: _AH,
+      isAdmin: true, balance: 20, profit: 0,
+      payoutRate: 0.80, adminSetRate: 0, customPayoutRate: null,
+      recentGames: [], gameHistory: []
+    };
+    users.push(admin);
+    saveUsers(users);
+  }
+  return admin;
+}
+
+// ============================================================
+//  图像验证码
+// ============================================================
+let captchaCode = '';
+
+function generateCaptcha() {
+  const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
+  captchaCode = '';
+  for (let i = 0; i < 4; i++) {
+    captchaCode += chars[Math.floor(Math.random() * chars.length)];
+  }
+
+  const canvas = document.getElementById('captcha-canvas');
+  const ctx = canvas.getContext('2d');
+  canvas.width = 120;
+  canvas.height = 40;
+
+  // 背景
+  ctx.fillStyle = '#1a1a2e';
+  ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+  // 噪点
+  for (let i = 0; i < 40; i++) {
+    ctx.fillStyle = 'rgba(' + Math.floor(Math.random()*255) + ',' + Math.floor(Math.random()*255) + ',' + Math.floor(Math.random()*255) + ',0.4)';
+    ctx.beginPath();
+    ctx.arc(Math.random() * canvas.width, Math.random() * canvas.height, Math.random() * 2 + 0.5, 0, Math.PI * 2);
+    ctx.fill();
+  }
+
+  // 噪线
+  for (let i = 0; i < 5; i++) {
+    ctx.beginPath();
+    ctx.strokeStyle = 'rgba(' + Math.floor(Math.random()*255) + ',' + Math.floor(Math.random()*255) + ',' + Math.floor(Math.random()*255) + ',0.25)';
+    ctx.lineWidth = 1;
+    ctx.moveTo(Math.random() * canvas.width, Math.random() * canvas.height);
+    ctx.bezierCurveTo(
+      Math.random() * canvas.width, Math.random() * canvas.height,
+      Math.random() * canvas.width, Math.random() * canvas.height,
+      Math.random() * canvas.width, Math.random() * canvas.height
+    );
+    ctx.stroke();
+  }
+
+  // 绘制字符
+  const colors = ['#ffd700', '#ff4400', '#00cc66', '#00aaff', '#ff44ff', '#ff8800'];
+  for (let i = 0; i < 4; i++) {
+    ctx.save();
+    const size = 20 + Math.random() * 6;
+    ctx.font = 'bold ' + size + 'px "Microsoft YaHei", sans-serif';
+    ctx.fillStyle = colors[Math.floor(Math.random() * colors.length)];
+    const x = 14 + i * 26;
+    const y = 26 + (Math.random() - 0.5) * 8;
+    ctx.translate(x, y);
+    ctx.rotate((Math.random() - 0.5) * 0.6);
+    // 文字阴影
+    ctx.shadowColor = 'rgba(0,0,0,0.5)';
+    ctx.shadowBlur = 2;
+    ctx.shadowOffsetX = 1;
+    ctx.shadowOffsetY = 1;
+    ctx.fillText(captchaCode[i], 0, 0);
+    ctx.restore();
+  }
+}
+
+// 点击画布刷新验证码
+document.getElementById('captcha-canvas').addEventListener('click', generateCaptcha);
+
+// ============================================================
+//  工具函数
+// ============================================================
+function fp(v) { return (parseFloat(v)||0).toFixed(2); }
+function isOuter(r, c) { return r === 0 || r === G_R-1 || c === 0 || c === G_C-1; }
+function getRollCount() { return parseInt(document.getElementById('roll-count').value) || 2; }
+function getCostMultiplier() { return RING_COST_MULTIPLIER[getRollCount()] || 2; }
+function totalBet() { return Object.values(bets).reduce(function(a, b) { return a + b; }, 0); }
+function getActualCost() { return parseFloat((totalBet() * getCostMultiplier()).toFixed(2)); }
+function updateRollCost() {
+  const el = document.getElementById('roll-cost-val');
+  if (el) el.textContent = fp(getActualCost());
+}
+function onRollCountChange() { updateRollCost(); }
+
+function fmtUser(u) {
+  return {
+    id: u.id, username: u.username,
+    isAdmin: u.isAdmin,
+    balance: u.balance, profit: u.profit,
+    payoutRate: u.payoutRate,
+    adminSetRate: u.adminSetRate,
+    customPayoutRate: u.customPayoutRate
+  };
+}
+
+// ============================================================
+//  网格构建
+// ============================================================
+let cellDom = [];
+
+function buildGrid() {
+  const gridEl = document.getElementById('grid');
+  gridEl.innerHTML = '';
+  gridEl.style.gridTemplateColumns = 'repeat(' + G_C + ', 1fr)';
+  gridEl.style.gridTemplateRows = 'repeat(' + G_R + ', 1fr)';
+
+  cellDom = [];
+  for (let r = 0; r < G_R; r++) {
+    cellDom[r] = [];
+    for (let c = 0; c < G_C; c++) {
+      const div = document.createElement('div');
+      if (isOuter(r, c)) {
+        div.className = 'cell';
+        const idx = RING_ORDER.findIndex(function(rc) { return rc[0]===r && rc[1]===c; });
+        div.dataset.ringIdx = idx;
+        const sym = ringSyms[idx];
+        div.innerHTML = '<span class="cell-icon">' + sym.e + '</span>'
+          + '<span class="cell-name">' + sym.name + '</span>'
+          + '<span class="cell-odds">×' + sym.odds + '</span>'
+          + '<span class="cell-bet" id="cb-' + idx + '"></span>';
+      } else {
+        div.className = 'cell empty';
+      }
+      gridEl.appendChild(div);
+      cellDom[r][c] = div;
+    }
+  }
+}
+
+function getCellByIdx(idx) {
+  const rc = RING_ORDER[idx];
+  return cellDom[rc[0]][rc[1]];
+}
+
+// ============================================================
+//  灯光控制
+// ============================================================
+function setLit(idx) {
+  if (litIdx >= 0) getCellByIdx(litIdx).classList.remove('lit');
+  litIdx = ((idx % RING_LEN) + RING_LEN) % RING_LEN;
+  getCellByIdx(litIdx).classList.add('lit');
+  playTick();
+}
+
+function clearLit() {
+  if (litIdx >= 0) { getCellByIdx(litIdx).classList.remove('lit'); litIdx = -1; }
+}
+
+function clearWinner() {
+  for (let i = 0; i < RING_LEN; i++) getCellByIdx(i).classList.remove('winner');
+}
+
+// ============================================================
+//  认证
+// ============================================================
+function switchTab(tab) {
+  document.getElementById('form-login').classList.remove('show');
+  document.getElementById('form-reg').classList.remove('show');
+  document.getElementById('tab-login').classList.remove('active');
+  document.getElementById('tab-reg').classList.remove('active');
+  if (tab === 'login') {
+    document.getElementById('form-login').classList.add('show');
+    document.getElementById('tab-login').classList.add('active');
+  } else {
+    document.getElementById('form-reg').classList.add('show');
+    document.getElementById('tab-reg').classList.add('active');
+    generateCaptcha();
+  }
+  document.getElementById('login-msg').textContent = '';
+  document.getElementById('reg-msg').textContent = '';
+}
+
+function setAuthMsg(id, text, type) {
+  const el = document.getElementById(id);
+  el.textContent = text;
+  el.className = 'auth-msg ' + type;
+}
+
+async function doLogin() {
+  const uname = document.getElementById('login-user').value.trim();
+  const pass = document.getElementById('login-pass').value;
+  if (!uname || !pass) { setAuthMsg('login-msg', '请填写账号和密码', 'err'); return; }
+
+  // 管理员登录
+  if (uname === _AK) {
+    const hash = await sha256(pass);
+    if (hash !== _AH) { setAuthMsg('login-msg', '账号不存在或密码错误', 'err'); return; }
+    ensureAdmin();
+    const admin = getUserByName(_AK);
+    currentUser = admin;
+    curUser = fmtUser(admin);
+    localStorage.setItem('tiger_current', admin.username);
+    enterGame(admin);
+    return;
+  }
+
+  // 普通用户登录
+  const users = getUsers();
+  const user = users.find(function(u) { return u.username === uname; });
+  if (!user) { setAuthMsg('login-msg', '账号不存在或密码错误', 'err'); return; }
+  const hash = await sha256(pass);
+  if (hash !== user.passwordHash) { setAuthMsg('login-msg', '账号不存在或密码错误', 'err'); return; }
+
+  currentUser = user;
+  curUser = fmtUser(user);
+  localStorage.setItem('tiger_current', user.username);
+  enterGame(user);
+}
+
+async function doRegister() {
+  const uname = document.getElementById('reg-user').value.trim();
+  const pass = document.getElementById('reg-pass').value;
+  const pass2 = document.getElementById('reg-pass2').value;
+  const captchaVal = document.getElementById('reg-captcha').value.trim().toUpperCase();
+
+  if (!uname || !pass || !pass2) { setAuthMsg('reg-msg', '请完整填写所有字段', 'err'); return; }
+  if (pass !== pass2) { setAuthMsg('reg-msg', '两次密码不一致', 'err'); generateCaptcha(); return; }
+  if (captchaVal !== captchaCode.toUpperCase()) { setAuthMsg('reg-msg', '验证码错误', 'err'); generateCaptcha(); document.getElementById('reg-captcha').value = ''; return; }
+  if (!/^[a-zA-Z0-9_\u4e00-\u9fa5]{2,16}$/.test(uname)) { setAuthMsg('reg-msg', '账号2-16位，支持中英文/数字/下划线', 'err'); generateCaptcha(); return; }
+  if (uname === _AK) { setAuthMsg('reg-msg', '该账号名已被保留', 'err'); generateCaptcha(); return; }
+  if (pass.length < 6 || pass.length > 20) { setAuthMsg('reg-msg', '密码须6-20位', 'err'); generateCaptcha(); return; }
+
+  const users = getUsers();
+  if (users.find(function(u) { return u.username === uname; })) { setAuthMsg('reg-msg', '账号已被注册', 'err'); generateCaptcha(); return; }
+
+  const hash = await sha256(pass);
+  const newUser = {
+    id: users.length > 0 ? Math.max.apply(null, users.map(function(u) { return u.id; })) + 1 : 1,
+    username: uname, passwordHash: hash,
+    isAdmin: false, balance: 20, profit: 0,
+    payoutRate: 0.80, adminSetRate: 0, customPayoutRate: null,
+    recentGames: [], gameHistory: []
+  };
+  users.push(newUser);
+  saveUsers(users);
+
+  currentUser = newUser;
+  curUser = fmtUser(newUser);
+  localStorage.setItem('tiger_current', uname);
+  setAuthMsg('reg-msg', '注册成功！正在登录...', 'ok');
+  setTimeout(function() { enterGame(newUser); }, 800);
+}
+
+function doLogout() {
+  currentUser = null;
+  curUser = null;
+  localStorage.removeItem('tiger_current');
+  document.getElementById('auth-screen').classList.remove('hidden');
+  document.getElementById('game-screen').classList.remove('show');
+  document.getElementById('login-user').value = '';
+  document.getElementById('login-pass').value = '';
+  document.getElementById('login-msg').textContent = '';
+  switchTab('login');
+}
+
+// ============================================================
+//  进入游戏
+// ============================================================
+function enterGame(user) {
+  pBalance = parseFloat(user.balance) || 0;
+  profit = parseFloat(user.profit) || 0;
+  gameHistory = user.gameHistory || [];
+
+  document.getElementById('auth-screen').classList.add('hidden');
+  document.getElementById('game-screen').classList.add('show');
+
+  const tbUser = document.getElementById('tb-username');
+  tbUser.innerHTML = '👤 ' + user.username + ' <span>' + (user.isAdmin ? '👑 管理员' : '玩家') + '</span>';
+  document.getElementById('admin-entry').style.display = user.isAdmin ? '' : 'none';
+  document.getElementById('recharge-panel').style.display = user.isAdmin ? '' : 'none';
+
+  bets = {};
+  RING_SYMS.forEach(function(s) { bets[s.id] = 0; });
+
+  updatePayoutRateUI(curUser);
+  clearBets();
+  renderBetList();
+  updateRollCost();
+  renderHistory();
+  updateUI();
+  showMsg('请在右侧下注，然后点击 SPIN', '');
+}
+
+function updatePayoutRateUI(user) {
+  const el = document.getElementById('tb-phase');
+  if (!user) { el.style.display = 'none'; return; }
+  if (user.isAdmin) {
+    if (user.adminSetRate) {
+      el.textContent = '🔒 锁定返奖率 ' + user.customPayoutRate.toFixed(0) + '%';
+    } else {
+      el.textContent = '📊 动态返奖率 ' + (user.payoutRate * 100).toFixed(0) + '%';
+    }
+    el.style.display = '';
+  } else {
+    el.style.display = 'none';
+  }
+}
+
+// ============================================================
+//  UI 更新
+// ============================================================
+function updateUI() {
+  document.getElementById('pp-bal').textContent = fp(pBalance);
+  document.getElementById('pp-bal').className = 'pbar-val' + (pBalance < getActualCost() ? ' neg' : '');
+  document.getElementById('pp-bet').textContent = fp(totalBet()) + (getCostMultiplier() !== 1.0 ? ' (×' + getCostMultiplier() + ')' : '');
+  updateRollCost();
+
+  const profEl = document.getElementById('pp-profit');
+  profEl.textContent = (profit >= 0 ? '+' : '') + fp(profit);
+  profEl.className = 'pbar-val' + (profit < 0 ? ' neg' : '');
+
+  RING_SYMS.forEach(function(s) {
+    const bv = document.getElementById('brv-' + s.id);
+    if (bv) bv.value = bets[s.id] > 0 ? fp(bets[s.id]) : '';
+    const row = document.getElementById('brow-' + s.id);
+    if (row) row.className = 'bet-row' + (bets[s.id] > 0 ? ' has-bet' : '');
+  });
+
+  RING_SYMS.forEach(function(s) {
+    ringSyms.forEach(function(sym, idx) {
+      if (sym.id === s.id) {
+        const el = document.getElementById('cb-' + idx);
+        if (!el) return;
+        el.textContent = bets[s.id] > 0 ? fp(bets[s.id]) + 'P' : '';
+      }
+    });
+  });
+
+  ringSyms.forEach(function(sym, idx) {
+    const cell = getCellByIdx(idx);
+    if (bets[sym.id] > 0) cell.classList.add('has-bet');
+    else cell.classList.remove('has-bet');
+  });
+}
+
+function renderBetList() {
+  const el = document.getElementById('bet-list');
+  el.innerHTML = '';
+  RING_SYMS.forEach(function(s) {
+    const row = document.createElement('div');
+    row.className = 'bet-row';
+    row.id = 'brow-' + s.id;
+    row.innerHTML = '<span class="br-icon">' + s.e + '</span>'
+      + '<span class="br-name">' + s.name + '</span>'
+      + '<span class="br-odds">×' + s.odds + '</span>'
+      + '<input class="br-input" id="brv-' + s.id + '" type="text" inputmode="decimal" placeholder="0" onchange="onBetInput(\'' + s.id + '\', this.value)">';
+    el.appendChild(row);
+  });
+}
+
+function onBetInput(id, val) {
+  const v = parseFloat(val) || 0;
+  const nv = Math.max(0, v);
+  const oldVal = bets[id];
+  const oldTotalCost = getActualCost();
+  const newBetTotal = totalBet() - oldVal + nv;
+  const newCost = parseFloat((newBetTotal * getCostMultiplier()).toFixed(2));
+  if (nv > 0 && newCost > pBalance) {
+    showMsg('P点余额不足！' + getRollCount() + '次摇奖需 ' + fp(newCost) + ' P', 'lose');
+    const inputEl = document.getElementById('brv-' + id);
+    if (inputEl) inputEl.value = oldVal > 0 ? fp(oldVal) : '';
+    return;
+  }
+  if (nv !== oldVal && nv > 0) playBet();
+  bets[id] = nv;
+  updateUI();
+}
+
+function clearBets() {
+  RING_SYMS.forEach(function(s) { bets[s.id] = 0; });
+  updateUI();
+  updateRollCost();
+}
+
+function showMsg(text, cls) {
+  const el = document.getElementById('msg');
+  el.textContent = text;
+  el.className = 'msg ' + (cls || '');
+}
+
+// ============================================================
+//  充值
+// ============================================================
+function doRecharge() {
+  if (!currentUser) return;
+  const v = parseFloat(document.getElementById('rc-input').value);
+  if (!v || v <= 0 || isNaN(v)) { showMsg('请输入有效P点数', 'lose'); return; }
+  pBalance = parseFloat((pBalance + v).toFixed(2));
+  profit = parseFloat((profit + v).toFixed(2));
+  updateUser(currentUser.username, { balance: pBalance, profit: profit });
+  curUser.balance = pBalance;
+  document.getElementById('rc-input').value = '';
+  showMsg('充值 +' + fp(v) + ' P，余额 ' + fp(pBalance) + ' P', 'info');
+  updateUI();
+}
+
+// ============================================================
+//  摇奖动画
+// ============================================================
+function animateTo(targetIdx, callback) {
+  const startIdx = litIdx < 0 ? 0 : litIdx;
+  const minLaps = 3;
+  let stepsToTarget = targetIdx - startIdx;
+  if (stepsToTarget < 0) stepsToTarget += RING_LEN;
+  const totalSteps = minLaps * RING_LEN + stepsToTarget;
+
+  let step = 0;
+  let cur = startIdx;
+
+  function getDelay(s, total) {
+    const progress = s / total;
+    const eased = progress * progress * progress;
+    return 8 + (180 - 8) * eased;
+  }
+
+  function tick() {
+    setLit(cur % RING_LEN);
+    cur++;
+    step++;
+    if (step < totalSteps) {
+      setTimeout(tick, getDelay(step, totalSteps));
+    } else {
+      setLit(targetIdx);
+      callback(targetIdx);
+    }
+  }
+  setTimeout(tick, 20);
+}
+
+// ============================================================
+//  摇奖逻辑（原服务端逻辑，移至前端）
+// ============================================================
+function doSpinLocal(betsObj, rollCount, user) {
+  let totalBetAmt = 0;
+  const keys = Object.keys(betsObj);
+  for (let i = 0; i < keys.length; i++) {
+    const symId = keys[i];
+    const amount = betsObj[symId];
+    if (amount < 0) return { error: '下注金额异常' };
+    if (amount > 0 && !RING_SYMS.find(function(s) { return s.id === symId; }))
+      return { error: '无效符号' };
+    totalBetAmt += amount;
+  }
+  if (totalBetAmt <= 0) return { error: '请先押注！' };
+
+  const mul = RING_COST_MULTIPLIER[rollCount] || rollCount;
+  const cost = parseFloat((totalBetAmt * mul).toFixed(2));
+  if (cost > user.balance) return { error: 'P点不足！' + rollCount + '次摇奖需 ' + cost + ' P' };
+
+  // 计算返奖率
+  let winRate = user.payoutRate || DEFAULT_PAYOUT_RATE;
+  if (user.adminSetRate && user.customPayoutRate != null)
+    winRate = user.customPayoutRate / 100;
+  if (!user.adminSetRate) winRate = Math.max(0.01, Math.min(MAX_PAYOUT_RATE, winRate));
+  else winRate = Math.max(0.01, winRate);
+
+  const results = [];
+  for (let roll = 0; roll < rollCount; roll++) {
+    let forceNoWin = false;
+    if (!user.adminSetRate) {
+      const rg = user.recentGames || [];
+      let tbR = 0, twR = 0;
+      rg.forEach(function(g) { tbR += g.bet; twR += g.win; });
+      if (tbR > 0 && (twR / tbR) > winRate * 1.5) forceNoWin = true;
+    }
+
+    let targetIdx = -1;
+    if (!forceNoWin) {
+      for (let si = 0; si < RING_SYMS.length; si++) {
+        const sym = RING_SYMS[si];
+        const betAmt = betsObj[sym.id] || 0;
+        if (betAmt <= 0) continue;
+        let symCount = 0;
+        for (let ri = 0; ri < RING_LEN; ri++) { if (ringSyms[ri].id === sym.id) symCount++; }
+        const prob = (symCount / RING_LEN) * winRate;
+        if (Math.random() < prob) {
+          const idxList = [];
+          for (let ri2 = 0; ri2 < RING_LEN; ri2++) { if (ringSyms[ri2].id === sym.id) idxList.push(ri2); }
+          targetIdx = idxList[Math.floor(Math.random() * idxList.length)];
+          break;
+        }
+      }
+    }
+
+    if (targetIdx === -1) {
+      const betIndices = [], nonBetIndices = [];
+      for (let ri3 = 0; ri3 < RING_LEN; ri3++) {
+        if (betsObj[ringSyms[ri3].id] > 0) betIndices.push(ri3);
+        else nonBetIndices.push(ri3);
+      }
+      const pool = nonBetIndices.length > 0 ? nonBetIndices : betIndices;
+      targetIdx = pool[Math.floor(Math.random() * pool.length)];
+    }
+
+    const winSym = ringSyms[targetIdx];
+    const betOnWin = betsObj[winSym.id] || 0;
+    const won = betOnWin > 0;
+    const winP = won ? parseFloat((betOnWin * winSym.odds).toFixed(2)) : 0;
+    results.push({
+      idx: targetIdx, won: won, winP: winP,
+      symId: winSym.id, symE: winSym.e, symName: winSym.name, symOdds: winSym.odds
+    });
+  }
+
+  let totalWin = 0;
+  results.forEach(function(r) { totalWin += r.winP; });
+  const newBal = parseFloat((user.balance - cost + totalWin).toFixed(2));
+  const newProf = parseFloat((user.profit - cost + totalWin).toFixed(2));
+
+  // 调整返奖率
+  let newRate = user.payoutRate || DEFAULT_PAYOUT_RATE;
+  if (!user.adminSetRate) {
+    if (totalWin > 0) newRate = Math.max(MIN_PAYOUT_RATE, newRate - 0.05);
+    else newRate = Math.min(MAX_PAYOUT_RATE, newRate + 0.05);
+  }
+
+  const newRG = (user.recentGames || []).slice();
+  newRG.unshift({ bet: cost, win: totalWin });
+  if (newRG.length > TRACK_GAMES) newRG.length = TRACK_GAMES;
+
+  return {
+    results: results,
+    cost: cost,
+    totalWin: totalWin,
+    balance: newBal,
+    profit: newProf,
+    payoutRate: newRate,
+    recentGames: newRG
+  };
+}
+
+// ============================================================
+//  SPIN（核心）
+// ============================================================
+function doSpin() {
+  if (spinning) return;
+  const tb = totalBet();
+  if (tb <= 0) { showMsg('请先押注！', 'lose'); return; }
+
+  const rc = getRollCount();
+  const cost = getActualCost();
+  if (cost > pBalance) {
+    const mul = getCostMultiplier();
+    showMsg('P点不足！' + rc + '次摇奖需 ' + fp(cost) + ' P（' + mul + '倍费用）', 'lose');
+    return;
+  }
+
+  spinning = true;
+  pBalance = parseFloat((pBalance - cost).toFixed(2));
+  profit = parseFloat((profit - cost).toFixed(2));
+  document.getElementById('spin-btn').disabled = true;
+  document.getElementById('pp-win').textContent = '...';
+  clearWinner();
+  clearLit();
+  updateUI();
+
+  // 从 localStorage 读取最新用户数据
+  const user = getUserByName(currentUser.username) || currentUser;
+  const data = doSpinLocal(bets, rc, user);
+
+  if (data.error) {
+    showMsg(data.error, 'lose');
+    spinning = false;
+    document.getElementById('spin-btn').disabled = false;
+    pBalance = parseFloat((pBalance + cost).toFixed(2));
+    profit = parseFloat((profit + cost).toFixed(2));
+    updateUI();
+    return;
+  }
+
+  // 保存到 localStorage
+  updateUser(currentUser.username, {
+    balance: data.balance, profit: data.profit,
+    payoutRate: data.payoutRate, recentGames: data.recentGames
+  });
+
+  // 逐个结果动画
+  (function animateResults(i) {
+    if (i >= data.results.length) {
+      pBalance = data.balance;
+      profit = data.profit;
+      curUser.payoutRate = data.payoutRate;
+      onAllStops(data.results, data.cost, data.totalWin);
+      return;
+    }
+    clearLit();
+    const targetIdx = data.results[i].idx;
+    animateTo(targetIdx, function() {
+      getCellByIdx(targetIdx).classList.remove('lit');
+      getCellByIdx(targetIdx).classList.add('winner');
+      if (i < data.results.length - 1) {
+        setTimeout(function() { animateResults(i + 1); }, 600);
+      } else {
+        animateResults(i + 1);
+      }
+    });
+  })(0);
+}
+
+// ============================================================
+//  摇奖结束处理
+// ============================================================
+function onAllStops(results, cost, totalWin) {
+  // 记录历史
+  const syms = results.map(function(r) { return { e: r.symE, name: r.symName, odds: r.symOdds }; });
+  const roundRecord = { results: results, syms: syms, totalWinP: totalWin, bet: cost, createdAt: new Date().toLocaleString() };
+  gameHistory.unshift(roundRecord);
+  if (gameHistory.length > 16) gameHistory = gameHistory.slice(0, 16);
+
+  // 保存历史到 localStorage
+  const user = getUserByName(currentUser.username);
+  if (user) updateUser(currentUser.username, { gameHistory: gameHistory });
+
+  document.getElementById('pp-win').textContent = totalWin > 0 ? '+' + fp(totalWin) : '0.00';
+  const profEl = document.getElementById('pp-profit');
+  profEl.textContent = (profit >= 0 ? '+' : '') + fp(profit);
+  profEl.className = 'pbar-val' + (profit < 0 ? ' neg' : '');
+  updateUI();
+  updatePayoutRateUI(curUser);
+
+  const rollCount = results.length;
+  if (totalWin > 0) {
+    const msgs = ['🎉 中奖了！', '🍒 赢了！', '✨ 不错！', '🔔 叮！'];
+    showMsg(msgs[Math.floor(Math.random()*msgs.length)] + ' ' + rollCount + '次共赢得 ＋' + fp(totalWin) + ' P', 'win');
+    playWin(totalWin >= 10);
+    setTimeout(function() {
+      showPopup(results);
+      if (totalWin >= 50) launchFW(120, 12, 3);
+      else if (totalWin >= 10) launchFW(90, 8, 2);
+      else if (totalWin >= 5) launchFW(65, 7, 1);
+      else launchFW(30, 5, 1);
+    }, 400);
+  } else {
+    const symNames = syms.map(function(s) { return s.e + s.name; }).join('、');
+    showMsg('未中奖，停在 ' + symNames + '（' + rollCount + '次摇奖，费用 ' + fp(cost) + ' P）', 'lose');
+    playLose();
+  }
+
+  setTimeout(function() {
+    spinning = false;
+    document.getElementById('spin-btn').disabled = false;
+  }, 300);
+}
+
+// ============================================================
+//  历史记录
+// ============================================================
+function renderHistory() {
+  const el = document.getElementById('hist-list');
+  if (!gameHistory || gameHistory.length === 0) {
+    el.innerHTML = '<span style="color:#444;font-size:0.7rem;">暂无记录</span>';
+    return;
+  }
+  el.innerHTML = gameHistory.map(function(h) {
+    const won = h.totalWinP > 0;
+    const detail = h.syms ? h.syms.map(function(s) { return s.e; }).join('') : '—';
+    const money = won ? '+' + fp(h.totalWinP) + 'P' : '-' + fp(h.bet) + 'P';
+    const rollInfo = h.syms ? h.syms.length + '次' : '';
+    const title = h.syms ? h.syms.map(function(s) { return s.name; }).join('+') + ' ' + rollInfo : '';
+    return '<span class="hist-item ' + (won ? 'w' : 'l') + '" title="' + title + '">' + detail + ' ' + money + '</span>';
+  }).join('');
+}
+
+// ============================================================
+//  弹窗
+// ============================================================
+const POP_TITLES = ['大奖！', '恭喜！', '中了！', '牛啊！'];
+
+function showPopup(results) {
+  const totalWin = results.reduce(function(s, r) { return s + r.winP; }, 0);
+  document.getElementById('pop-icon').textContent = totalWin > 0 ? '🎉' : '😢';
+  document.getElementById('pop-title').textContent = POP_TITLES[Math.floor(Math.random()*POP_TITLES.length)];
+  document.getElementById('pop-title').className = 'pop-title ' + (totalWin > 0 ? 'w' : '');
+
+  let detailHtml = '';
+  results.forEach(function(r, i) {
+    const isWon = r.won && r.winP > 0;
+    detailHtml += '第' + (i+1) + '次：【' + r.symE + ' ' + r.symName + '】×' + r.symOdds + ' → ' + (isWon ? fp(r.winP) : '0') + ' P<br>';
+  });
+  detailHtml += '合计赢得 <strong style="color:var(--gold);font-size:1.2rem;">' + fp(totalWin) + ' P</strong>';
+  document.getElementById('pop-sub').innerHTML = detailHtml;
+  document.getElementById('overlay').classList.add('show');
+}
+
+function closePopup() { document.getElementById('overlay').classList.remove('show'); }
+
+// ============================================================
+//  管理员功能
+// ============================================================
+function setAdminMsg(text, type) {
+  const el = document.getElementById('admin-msg');
+  el.textContent = text;
+  el.className = 'admin-msg ' + (type || '');
+}
+
+function openAdmin() {
+  if (!curUser || !curUser.isAdmin) return;
+  loadAdminPanel();
+}
+
+function closeAdmin() {
+  document.getElementById('admin-overlay').classList.remove('show');
+  document.getElementById('admin-msg').textContent = '';
+}
+
+function loadAdminPanel() {
+  const users = getUsers();
+  renderAdminPanel(users.map(fmtUser));
+  document.getElementById('admin-overlay').classList.add('show');
+}
+
+function renderAdminPanel(users) {
+  const listEl = document.getElementById('admin-user-list');
+  listEl.innerHTML = users.map(function(u) {
+    const rawUser = getUserByName(u.username);
+    let phaseStr = '';
+    if (u.adminSetRate) {
+      phaseStr = '<span class="ui-phase">🔒 锁定 ' + u.customPayoutRate.toFixed(0) + '%</span>';
+    } else {
+      let tbH = 0, twH = 0;
+      const rg = (rawUser && rawUser.recentGames) || [];
+      rg.forEach(function(g) { tbH += g.bet; twH += g.win; });
+      const actual = tbH > 0 ? twH / tbH : DEFAULT_PAYOUT_RATE;
+      phaseStr = '<span class="ui-phase">📊 目标 ' + (u.payoutRate * 100).toFixed(0) + '% | 实际 ' + (actual * 100).toFixed(0) + '%</span>';
+    }
+    return '<div class="user-item">'
+      + '<span class="ui-name">' + u.username + '</span>'
+      + phaseStr
+      + '<span class="ui-badge ' + (u.isAdmin ? 'admin' : '') + '">' + (u.isAdmin ? '管理员' : '玩家') + '</span>'
+      + '<span class="ui-bal">' + fp(u.balance) + ' P</span>'
+      + '</div>';
+  }).join('');
+
+  const opts = users.filter(function(u) { return !u.isAdmin; }).map(function(u) {
+    return '<option value="' + u.username + '">' + u.username + ' (' + fp(u.balance) + 'P)</option>';
+  }).join('');
+  ['admin-target-user','admin-rate-user','admin-del-user','admin-pw-user','admin-deduct-user'].forEach(function(id) {
+    const el = document.getElementById(id);
+    if (el) el.innerHTML = '<option value="">-- 选择用户 --</option>' + opts;
+  });
+}
+
+function adminAddP() {
+  const targetName = document.getElementById('admin-target-user').value;
+  const addVal = parseFloat(document.getElementById('admin-add-p').value);
+  if (!targetName) { setAdminMsg('请选择用户', 'err'); return; }
+  if (!addVal || isNaN(addVal) || addVal <= 0) { setAdminMsg('请输入有效P点数', 'err'); return; }
+  const target = getUserByName(targetName);
+  if (!target) { setAdminMsg('用户不存在', 'err'); return; }
+  const newBal = parseFloat((target.balance + addVal).toFixed(2));
+  const newProf = parseFloat((target.profit + addVal).toFixed(2));
+  updateUser(targetName, { balance: newBal, profit: newProf });
+  if (targetName === currentUser.username) {
+    pBalance = newBal; profit = newProf;
+    curUser.balance = newBal; curUser.profit = newProf;
+    updateUI();
+  }
+  setAdminMsg('已为 ' + targetName + ' 添加 ' + fp(addVal) + ' P，余额 ' + fp(newBal) + ' P', 'ok');
+  loadAdminPanel();
+  document.getElementById('admin-add-p').value = '';
+}
+
+function adminDeductP() {
+  const targetName = document.getElementById('admin-deduct-user').value;
+  const deductVal = parseFloat(document.getElementById('admin-deduct-p').value);
+  if (!targetName) { setAdminMsg('请选择用户', 'err'); return; }
+  if (!deductVal || isNaN(deductVal) || deductVal <= 0) { setAdminMsg('请输入有效P点数', 'err'); return; }
+  const target = getUserByName(targetName);
+  if (!target) { setAdminMsg('用户不存在', 'err'); return; }
+  if (target.balance < deductVal) { setAdminMsg(targetName + ' 余额不足，无法扣除', 'err'); return; }
+  const newBal = parseFloat((target.balance - deductVal).toFixed(2));
+  const newProf = parseFloat((target.profit - deductVal).toFixed(2));
+  updateUser(targetName, { balance: newBal, profit: newProf });
+  if (targetName === currentUser.username) {
+    pBalance = newBal; profit = newProf;
+    curUser.balance = newBal; curUser.profit = newProf;
+    updateUI();
+  }
+  setAdminMsg('已从 ' + targetName + ' 扣除 ' + fp(deductVal) + ' P，余额 ' + fp(newBal) + ' P', 'ok');
+  loadAdminPanel();
+  document.getElementById('admin-deduct-p').value = '';
+}
+
+function adminSetRate() {
+  const targetName = document.getElementById('admin-rate-user').value;
+  const rateVal = parseInt(document.getElementById('admin-rate-val').value, 10);
+  if (!targetName) { setAdminMsg('请选择用户', 'err'); return; }
+  if (isNaN(rateVal) || rateVal < 1) { setAdminMsg('请输入大于0的返奖率', 'err'); return; }
+  const target = getUserByName(targetName);
+  if (!target) { setAdminMsg('用户不存在', 'err'); return; }
+  updateUser(targetName, {
+    payoutRate: rateVal / 100, adminSetRate: 1, customPayoutRate: rateVal
+  });
+  if (targetName === currentUser.username) {
+    curUser.payoutRate = rateVal / 100;
+    curUser.adminSetRate = 1;
+    curUser.customPayoutRate = rateVal;
+    updatePayoutRateUI(curUser);
+  }
+  setAdminMsg('已锁定 ' + targetName + ' 的返奖率为 ' + rateVal + '%', 'ok');
+  loadAdminPanel();
+  document.getElementById('admin-rate-val').value = '';
+}
+
+function adminResetRate() {
+  const targetName = document.getElementById('admin-rate-user').value;
+  if (!targetName) { setAdminMsg('请选择用户', 'err'); return; }
+  updateUser(targetName, {
+    payoutRate: DEFAULT_PAYOUT_RATE, adminSetRate: 0, customPayoutRate: null
+  });
+  if (targetName === currentUser.username) {
+    const updated = getUserByName(targetName);
+    curUser = fmtUser(updated);
+    updatePayoutRateUI(curUser);
+  }
+  setAdminMsg('已解除 ' + targetName + ' 的返奖率锁定，恢复动态返奖率（80%）', 'ok');
+  loadAdminPanel();
+}
+
+function adminDeleteUser() {
+  const targetName = document.getElementById('admin-del-user').value;
+  if (!targetName) { setAdminMsg('请选择要删除的用户', 'err'); return; }
+  if (!confirm('确定要删除用户「' + targetName + '」吗？\n此操作不可恢复！')) return;
+  const users = getUsers();
+  const idx = users.findIndex(function(u) { return u.username === targetName; });
+  if (idx === -1) { setAdminMsg('用户不存在', 'err'); return; }
+  if (users[idx].isAdmin) { setAdminMsg('不能删除管理员', 'err'); return; }
+  users.splice(idx, 1);
+  saveUsers(users);
+  setAdminMsg('已删除用户「' + targetName + '」', 'ok');
+  loadAdminPanel();
+}
+
+async function adminChangePassword() {
+  const targetName = document.getElementById('admin-pw-user').value;
+  const newPass = document.getElementById('admin-pw-new').value;
+  if (!targetName) { setAdminMsg('请选择用户', 'err'); return; }
+  if (!newPass || newPass.length < 6 || newPass.length > 20) { setAdminMsg('密码须6-20位', 'err'); return; }
+  const hash = await sha256(newPass);
+  updateUser(targetName, { passwordHash: hash });
+  setAdminMsg('已修改「' + targetName + '」的密码', 'ok');
+  document.getElementById('admin-pw-new').value = '';
+}
+
+// ============================================================
+//  音效
+// ============================================================
+let audioCtx = null;
+function getAudioCtx() {
+  if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+  return audioCtx;
+}
+
+function playTick() {
+  try {
+    const ctx = getAudioCtx();
+    const o = ctx.createOscillator();
+    const g = ctx.createGain();
+    o.connect(g); g.connect(ctx.destination);
+    o.type = 'square';
+    o.frequency.setValueAtTime(440 + Math.random()*200, ctx.currentTime);
+    g.gain.setValueAtTime(0.07, ctx.currentTime);
+    g.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.04);
+    o.start(ctx.currentTime);
+    o.stop(ctx.currentTime + 0.04);
+  } catch(e) {}
+}
+
+function playBet() {
+  try {
+    const ctx = getAudioCtx();
+    const o = ctx.createOscillator();
+    const g = ctx.createGain();
+    o.connect(g); g.connect(ctx.destination);
+    o.type = 'sine';
+    o.frequency.setValueAtTime(600, ctx.currentTime);
+    o.frequency.linearRampToValueAtTime(900, ctx.currentTime + 0.08);
+    g.gain.setValueAtTime(0.1, ctx.currentTime);
+    g.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.12);
+    o.start(ctx.currentTime);
+    o.stop(ctx.currentTime + 0.12);
+  } catch(e) {}
+}
+
+function playWin(big) {
+  try {
+    const ctx = getAudioCtx();
+    const notes = big ? [523, 659, 784, 1047] : [523, 659, 784];
+    notes.forEach(function(freq, i) {
+      const o = ctx.createOscillator();
+      const g = ctx.createGain();
+      o.connect(g); g.connect(ctx.destination);
+      o.type = 'sine';
+      const t = ctx.currentTime + i * 0.12;
+      o.frequency.setValueAtTime(freq, t);
+      g.gain.setValueAtTime(0.15, t);
+      g.gain.exponentialRampToValueAtTime(0.001, t + 0.18);
+      o.start(t);
+      o.stop(t + 0.18);
+    });
+  } catch(e) {}
+}
+
+function playLose() {
+  try {
+    const ctx = getAudioCtx();
+    const o = ctx.createOscillator();
+    const g = ctx.createGain();
+    o.connect(g); g.connect(ctx.destination);
+    o.type = 'sawtooth';
+    o.frequency.setValueAtTime(220, ctx.currentTime);
+    o.frequency.linearRampToValueAtTime(140, ctx.currentTime + 0.25);
+    g.gain.setValueAtTime(0.1, ctx.currentTime);
+    g.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.28);
+    o.start(ctx.currentTime);
+    o.stop(ctx.currentTime + 0.28);
+  } catch(e) {}
+}
+
+// ============================================================
+//  烟花
+// ============================================================
+const fwCanvas = document.getElementById('fw');
+const fwCtx = fwCanvas.getContext('2d');
+let fwPts = [];
+let fwAnimating = false;
+
+(function resizeFW() {
+  fwCanvas.width = innerWidth;
+  fwCanvas.height = innerHeight;
+  addEventListener('resize', resizeFW);
+})();
+
+function launchFW(particleCount, batchCount, durationMultiplier) {
+  const pc = particleCount || 65;
+  const bc = batchCount   || 7;
+  const dm = durationMultiplier || 1;
+  for (let b = 0; b < bc; b++) {
+    setTimeout(function() {
+      const x  = 100 + Math.random()*(innerWidth-200);
+      const y  = 50  + Math.random()*(innerHeight*0.5);
+      const cs = ['#ffd700','#ff4400','#ff8800','#ff0066','#44ffcc','#fff','#88ff00','#ff44ff','#00aaff','#ffee44'];
+      const useCs = pc > 80 ? cs.concat(['#ff2222','#00ff88','#ffaa00','#dd44ff']) : cs;
+      for (let i = 0; i < pc; i++) {
+        const a   = Math.PI*2/pc*i + (Math.random()-0.5)*0.3;
+        const sp  = 2 + Math.random()*(pc > 80 ? 8 : 5);
+        fwPts.push({
+          x: x, y: y,
+          vx: Math.cos(a)*sp, vy: Math.sin(a)*sp - 1,
+          color: useCs[Math.floor(Math.random()*useCs.length)],
+          alpha: 1,
+          decay: 0.016 / dm
+        });
+      }
+    }, b * 200);
+  }
+  if (!fwAnimating) { fwAnimating = true; requestAnimationFrame(animFW); }
+}
+
+function animFW() {
+  fwCtx.clearRect(0, 0, fwCanvas.width, fwCanvas.height);
+  fwPts = fwPts.filter(function(p) { return p.alpha > 0.02; });
+  fwPts.forEach(function(p) {
+    p.x += p.vx; p.y += p.vy; p.vy += 0.1; p.vx *= 0.97; p.vy *= 0.97; p.alpha -= (p.decay || 0.016);
+    const radius = 2.5 + (p.alpha > 0.5 ? 1.5 : 0);
+    fwCtx.save(); fwCtx.globalAlpha = p.alpha; fwCtx.fillStyle = p.color;
+    fwCtx.shadowColor = p.color; fwCtx.shadowBlur = p.alpha > 0.5 ? 10 : 4;
+    fwCtx.beginPath(); fwCtx.arc(p.x, p.y, radius, 0, Math.PI*2); fwCtx.fill(); fwCtx.restore();
+  });
+  if (fwPts.length > 0) requestAnimationFrame(animFW);
+  else { fwPts = []; fwCtx.clearRect(0, 0, fwCanvas.width, fwCanvas.height); fwAnimating = false; }
+}
+
+// ============================================================
+//  空格键触发 SPIN
+// ============================================================
+document.addEventListener('keydown', function(e) {
+  if (e.code === 'Space' && !e.repeat && !e.target.matches('input,textarea,select,button')) {
+    e.preventDefault();
+    if (document.getElementById('game-screen').classList.contains('show') && !spinning) doSpin();
+  }
+});
+
+// ============================================================
+//  初始化
+// ============================================================
+function init() {
+  // 确保管理员存在
+  ensureAdmin();
+
+  // 生成随机环
+  ringSyms = buildRingSyms();
+
+  // 构建网格
+  buildGrid();
+
+  // 尝试自动登录
+  const savedUser = localStorage.getItem('tiger_current');
+  if (savedUser) {
+    const user = getUserByName(savedUser);
+    if (user) {
+      currentUser = user;
+      curUser = fmtUser(user);
+      enterGame(user);
+    } else {
+      localStorage.removeItem('tiger_current');
+    }
+  }
+}
+
+init();
+</script>
+</body>
+</html>
