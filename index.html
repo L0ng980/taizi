@@ -2,17 +2,17 @@
 <html lang="zh-CN">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no">
 <title>🎰 太子老虎机</title>
 <style>
 /* ── 全局 ── */
 *{margin:0;padding:0;box-sizing:border-box;}
 :root{--gold:#ffd700;--red:#ff4400;--bg:#0a0a0a;--card:#1a1a2e;--text:#e0e0e0;}
-html,body{height:100%;}
-body{background:var(--bg);color:var(--text);font-family:'Segoe UI','Microsoft YaHei',sans-serif;display:flex;flex-direction:column;align-items:center;justify-content:center;}
+html{height:100%;}
+body{background:var(--bg);color:var(--text);font-family:'Segoe UI','Microsoft YaHei',sans-serif;display:flex;flex-direction:column;align-items:center;min-height:100%;overflow-x:hidden;}
 
 /* ── 认证 ── */
-#auth-screen{width:340px;padding:32px 28px;background:var(--card);border-radius:18px;box-shadow:0 0 40px #ffd70022;display:block;}
+#auth-screen{width:340px;padding:32px 28px;background:var(--card);border-radius:18px;box-shadow:0 0 40px #ffd70022;display:block;margin:auto;}
 #auth-screen.hidden{display:none;}
 .auth-title{text-align:center;font-size:1.4rem;color:var(--gold);margin-bottom:18px;}
 .auth-tab{display:inline-block;padding:6px 18px;margin:0 4px;border:none;background:none;color:#888;font-size:0.9rem;cursor:pointer;border-bottom:2px solid transparent;transition:.2s;}
@@ -35,7 +35,7 @@ body{background:var(--bg);color:var(--text);font-family:'Segoe UI','Microsoft Ya
 .captcha-refresh:hover{border-color:var(--gold);color:var(--gold);}
 
 /* ── 游戏界面 ── */
-#game-screen{display:none;width:100%;flex-direction:column;align-items:center;}
+#game-screen{display:none;width:100%;flex-direction:column;align-items:center;flex:1;}
 #game-screen.show{display:flex !important;}
 
 /* 顶栏 */
@@ -73,9 +73,9 @@ body{background:var(--bg);color:var(--text);font-family:'Segoe UI','Microsoft Ya
 
 @media(max-width:600px){
   .main-wrap{flex-direction:column;align-items:center;}
-  .grid-wrap{min-width:0;max-width:100vw;width:96vw;}
+  .grid-wrap{min-width:0;max-width:96vw;width:96vw;aspect-ratio:auto;height:auto;}
   .right-panel{width:96vw;max-width:420px;flex-direction:row;flex-wrap:wrap;}
-  .right-panel .panel{flex:1;min-width:160px;}
+  .right-panel .panel{flex:1;min-width:140px;}
   .cell-name{font-size:0.5rem;}
   .cell-odds{font-size:0.5rem;}
 
@@ -84,6 +84,9 @@ body{background:var(--bg);color:var(--text);font-family:'Segoe UI','Microsoft Ya
   #tb-username{width:100%;}
   .pbar{padding:6px 8px;gap:4px;}
   .pbar-val{font-size:0.85rem;}
+
+  .pop-box{margin:16px;padding:24px 18px;}
+  .admin-box{width:96vw;max-width:420px;max-height:90vh;}
 }
 
 /* 右侧面板 */
@@ -1244,11 +1247,10 @@ function adminAddP() {
   const target = getUserByName(targetName);
   if (!target) { setAdminMsg('用户不存在', 'err'); return; }
   const newBal = parseFloat((target.balance + addVal).toFixed(2));
-  const newProf = parseFloat((target.profit + addVal).toFixed(2));
-  updateUser(targetName, { balance: newBal, profit: newProf });
+  updateUser(targetName, { balance: newBal });
   if (targetName === currentUser.username) {
-    pBalance = newBal; profit = newProf;
-    curUser.balance = newBal; curUser.profit = newProf;
+    pBalance = newBal;
+    curUser.balance = newBal; curUser.profit = profit;
     updateUI();
   }
   setAdminMsg('已为 ' + targetName + ' 添加 ' + fp(addVal) + ' P，余额 ' + fp(newBal) + ' P', 'ok');
@@ -1265,11 +1267,10 @@ function adminDeductP() {
   if (!target) { setAdminMsg('用户不存在', 'err'); return; }
   if (target.balance < deductVal) { setAdminMsg(targetName + ' 余额不足，无法扣除', 'err'); return; }
   const newBal = parseFloat((target.balance - deductVal).toFixed(2));
-  const newProf = parseFloat((target.profit - deductVal).toFixed(2));
-  updateUser(targetName, { balance: newBal, profit: newProf });
+  updateUser(targetName, { balance: newBal });
   if (targetName === currentUser.username) {
-    pBalance = newBal; profit = newProf;
-    curUser.balance = newBal; curUser.profit = newProf;
+    pBalance = newBal;
+    curUser.balance = newBal; curUser.profit = profit;
     updateUI();
   }
   setAdminMsg('已从 ' + targetName + ' 扣除 ' + fp(deductVal) + ' P，余额 ' + fp(newBal) + ' P', 'ok');
