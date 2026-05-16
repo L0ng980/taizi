@@ -325,8 +325,8 @@ body{background:var(--bg);color:var(--text);font-family:'Segoe UI','Microsoft Ya
 //  加密存储的管理员凭据
 //  用户名通过 Base64 编码，密码通过 SHA-256 哈希
 // ============================================================
-const _AK = atob('5bm_5bGx'); // 解码后为管理员账号
-const _AH = '8d969eef6ecad3c29a3a629280e686cf0c3f5d5a86aff3ca12020c923adc6c92'; // SHA-256 哈希
+const _AK = '太子'; // 管理员账号
+const _AP = '123456'; // 管理员密码
 
 // ============================================================
 //  常量与配置
@@ -396,8 +396,45 @@ RING_LEN = RING_ORDER.length;
 //  SHA-256 工具
 // ============================================================
 async function sha256(msg) {
-  const buf = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(msg));
-  return Array.from(new Uint8Array(buf)).map(function(b) { return b.toString(16).padStart(2, '0'); }).join('');
+  // crypto.subtle 仅在 HTTPS/localhost 可用，file:// 需要回退方案
+  if (window.crypto && window.crypto.subtle) {
+    try {
+      const buf = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(msg));
+      return Array.from(new Uint8Array(buf)).map(function(b) { return b.toString(16).padStart(2, '0'); }).join('');
+    } catch(e) {}
+  }
+  // 纯 JS 回退实现
+  return sha256Fallback(msg);
+}
+
+// SHA-256 纯 JS 实现（用于 file:// 环境）
+function sha256Fallback(str) {
+  function rotr(x,n){return(x>>>n)|(x<<(32-n))}
+  function ch(x,y,z){return(x&y)^(~x&z)}
+  function maj(x,y,z){return(x&y)^(x&z)^(y&z)}
+  function s0(x){return rotr(x,2)^rotr(x,13)^rotr(x,22)}
+  function s1(x){return rotr(x,6)^rotr(x,11)^rotr(x,25)}
+  function g0(x){return rotr(x,7)^rotr(x,18)^(x>>>3)}
+  function g1(x){return rotr(x,17)^rotr(x,19)^(x>>>10)}
+  var K=[0x428a2f98,0x71374491,0xb5c0fbcf,0xe9b5dba5,0x3956c25b,0x59f111f1,0x923f82a4,0xab1c5ed5,0xd807aa98,0x12835b01,0x243185be,0x550c7dc3,0x72be5d74,0x80deb1fe,0x9bdc06a7,0xc19bf174,0xe49b69c1,0xefbe4786,0x0fc19dc6,0x240ca1cc,0x2de92c6f,0x4a7484aa,0x5cb0a9dc,0x76f988da,0x983e5152,0xa831c66d,0xb00327c8,0xbf597fc7,0xc6e00bf3,0xd5a79147,0x06ca6351,0x14292967,0x27b70a85,0x2e1b2138,0x4d2c6dfc,0x53380d13,0x650a7354,0x766a0abb,0x81c2c92e,0x92722c85,0xa2bfe8a1,0xa81a664b,0xc24b8b70,0xc76c51a3,0xd192e819,0xd6990624,0xf40e3585,0x106aa070,0x19a4c116,0x1e376c08,0x2748774c,0x34b0bcb5,0x391c0cb3,0x4ed8aa4a,0x5b9cca4f,0x682e6ff3,0x748f82ee,0x78a5636f,0x84c87814,0x8cc70208,0x90befffa,0xa4506ceb,0xbef9a3f7,0xc67178f2];
+  var bytes=[];
+  for(var i=0;i<str.length;i++){var c=str.charCodeAt(i);if(c<128)bytes.push(c);else if(c<2048){bytes.push(192|(c>>6));bytes.push(128|(c&63));}else if(c<65536){bytes.push(224|(c>>12));bytes.push(128|((c>>6)&63));bytes.push(128|(c&63));}else{bytes.push(240|(c>>18));bytes.push(128|((c>>12)&63));bytes.push(128|((c>>6)&63));bytes.push(128|(c&63));}}
+  var bitLen=bytes.length*8;
+  bytes.push(0x80);
+  while(bytes.length%64!==56)bytes.push(0);
+  bytes.push(0,0,0,0);
+  bytes.push((bitLen>>>24)&0xff,(bitLen>>>16)&0xff,(bitLen>>>8)&0xff,bitLen&0xff);
+  var h0=0x6a09e667,h1=0xbb67ae85,h2=0x3c6ef372,h3=0xa54ff53a,h4=0x510e527f,h5=0x9b05688c,h6=0x1f83d9ab,h7=0x5be0cd19;
+  for(var off=0;off<bytes.length;off+=64){
+    var w=[];
+    for(var i=0;i<16;i++)w[i]=(bytes[off+i*4]<<24)|(bytes[off+i*4+1]<<16)|(bytes[off+i*4+2]<<8)|bytes[off+i*4+3];
+    for(var i=16;i<64;i++)w[i]=(g1(w[i-2])+w[i-7]+g0(w[i-15])+w[i-16])|0;
+    var a=h0,b=h1,c=h2,d=h3,e=h4,f=h5,g=h6,h=h7;
+    for(var i=0;i<64;i++){var t1=(h+s1(e)+ch(e,f,g)+K[i]+w[i])|0;var t2=(s0(a)+maj(a,b,c))|0;h=g;g=f;f=e;e=(d+t1)|0;d=c;c=b;b=a;a=(t1+t2)|0;}
+    h0=(h0+a)|0;h1=(h1+b)|0;h2=(h2+c)|0;h3=(h3+d)|0;h4=(h4+e)|0;h5=(h5+f)|0;h6=(h6+g)|0;h7=(h7+h)|0;
+  }
+  function hex(n){var s='';for(var i=28;i>=0;i-=4)s+=((n>>>i)&0xf).toString(16);return s;}
+  return hex(h0)+hex(h1)+hex(h2)+hex(h3)+hex(h4)+hex(h5)+hex(h6)+hex(h7);
 }
 
 // ============================================================
@@ -430,12 +467,17 @@ function ensureAdmin() {
   let admin = users.find(function(u) { return u.username === _AK; });
   if (!admin) {
     admin = {
-      id: 1, username: _AK, passwordHash: _AH,
+      id: 1, username: _AK, password: _AP,
       isAdmin: true, balance: 20, profit: 0,
       payoutRate: 0.80, adminSetRate: 0, customPayoutRate: null,
       recentGames: [], gameHistory: []
     };
     users.push(admin);
+    saveUsers(users);
+  } else if (!admin.isAdmin) {
+    // 如果"太子"被注册为普通账号，自动修正为管理员，并重置密码哈希
+    admin.isAdmin = true;
+    admin.password = _AP;
     saveUsers(users);
   }
   return admin;
@@ -495,6 +537,8 @@ function generateCaptcha() {
     const y = 26 + (Math.random() - 0.5) * 8;
     ctx.translate(x, y);
     ctx.rotate((Math.random() - 0.5) * 0.6);
+    ctx.textBaseline = 'middle';
+    ctx.textAlign = 'center';
     // 文字阴影
     ctx.shadowColor = 'rgba(0,0,0,0.5)';
     ctx.shadowBlur = 2;
@@ -605,7 +649,7 @@ function switchTab(tab) {
   } else {
     document.getElementById('form-reg').classList.add('show');
     document.getElementById('tab-reg').classList.add('active');
-    generateCaptcha();
+    setTimeout(generateCaptcha, 50);
   }
   document.getElementById('login-msg').textContent = '';
   document.getElementById('reg-msg').textContent = '';
@@ -624,8 +668,7 @@ async function doLogin() {
 
   // 管理员登录
   if (uname === _AK) {
-    const hash = await sha256(pass);
-    if (hash !== _AH) { setAuthMsg('login-msg', '账号不存在或密码错误', 'err'); return; }
+    if (pass !== _AP) { setAuthMsg('login-msg', '账号不存在或密码错误', 'err'); return; }
     ensureAdmin();
     const admin = getUserByName(_AK);
     currentUser = admin;
@@ -639,8 +682,7 @@ async function doLogin() {
   const users = getUsers();
   const user = users.find(function(u) { return u.username === uname; });
   if (!user) { setAuthMsg('login-msg', '账号不存在或密码错误', 'err'); return; }
-  const hash = await sha256(pass);
-  if (hash !== user.passwordHash) { setAuthMsg('login-msg', '账号不存在或密码错误', 'err'); return; }
+  if (pass !== user.password) { setAuthMsg('login-msg', '账号不存在或密码错误', 'err'); return; }
 
   currentUser = user;
   curUser = fmtUser(user);
@@ -664,10 +706,9 @@ async function doRegister() {
   const users = getUsers();
   if (users.find(function(u) { return u.username === uname; })) { setAuthMsg('reg-msg', '账号已被注册', 'err'); generateCaptcha(); return; }
 
-  const hash = await sha256(pass);
   const newUser = {
     id: users.length > 0 ? Math.max.apply(null, users.map(function(u) { return u.id; })) + 1 : 1,
-    username: uname, passwordHash: hash,
+    username: uname, password: pass,
     isAdmin: false, balance: 20, profit: 0,
     payoutRate: 0.80, adminSetRate: 0, customPayoutRate: null,
     recentGames: [], gameHistory: []
@@ -1051,6 +1092,7 @@ function onAllStops(results, cost, totalWin) {
   // 保存历史到 localStorage
   const user = getUserByName(currentUser.username);
   if (user) updateUser(currentUser.username, { gameHistory: gameHistory });
+  renderHistory();
 
   document.getElementById('pp-win').textContent = totalWin > 0 ? '+' + fp(totalWin) : '0.00';
   const profEl = document.getElementById('pp-profit');
@@ -1277,8 +1319,7 @@ async function adminChangePassword() {
   const newPass = document.getElementById('admin-pw-new').value;
   if (!targetName) { setAdminMsg('请选择用户', 'err'); return; }
   if (!newPass || newPass.length < 6 || newPass.length > 20) { setAdminMsg('密码须6-20位', 'err'); return; }
-  const hash = await sha256(newPass);
-  updateUser(targetName, { passwordHash: hash });
+  updateUser(targetName, { password: newPass });
   setAdminMsg('已修改「' + targetName + '」的密码', 'ok');
   document.getElementById('admin-pw-new').value = '';
 }
