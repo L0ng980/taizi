@@ -53,7 +53,7 @@ body{background:var(--bg);color:var(--text);font-family:'Segoe UI','Microsoft Ya
 .pbar-val.neg{color:var(--red);}
 
 /* 主体 */
-.main-wrap{display:flex;gap:12px;padding:12px;max-width:900px;width:100%;flex-wrap:wrap;justify-content:center;}
+.main-wrap{display:flex;gap:10px;padding:10px;max-width:900px;width:100%;flex-wrap:wrap;justify-content:center;}
 
 /* 网格 */
 .grid-wrap{flex:1;min-width:260px;max-width:420px;aspect-ratio:6/8;position:relative;}
@@ -70,6 +70,21 @@ body{background:var(--bg);color:var(--text);font-family:'Segoe UI','Microsoft Ya
 .cell-name{font-size:clamp(0.45rem,1.2vw,0.6rem);color:#aaa;}
 .cell-odds{font-size:clamp(0.45rem,1vw,0.55rem);color:var(--gold);}
 .cell-bet{position:absolute;bottom:2px;right:3px;font-size:0.5rem;color:#ff8800;font-weight:700;}
+
+@media(max-width:600px){
+  .main-wrap{flex-direction:column;align-items:center;}
+  .grid-wrap{min-width:0;max-width:100vw;width:96vw;}
+  .right-panel{width:96vw;max-width:420px;flex-direction:row;flex-wrap:wrap;}
+  .right-panel .panel{flex:1;min-width:160px;}
+  .cell-name{font-size:0.5rem;}
+  .cell-odds{font-size:0.5rem;}
+
+  #auth-screen{width:96vw;max-width:360px;padding:24px 18px;}
+  #top-bar{flex-wrap:wrap;gap:4px;font-size:0.7rem;}
+  #tb-username{width:100%;}
+  .pbar{padding:6px 8px;gap:4px;}
+  .pbar-val{font-size:0.85rem;}
+}
 
 /* 右侧面板 */
 .right-panel{width:240px;display:flex;flex-direction:column;gap:10px;}
@@ -335,7 +350,6 @@ const G_C = 6, G_R = 8;
 const RING_COST_MULTIPLIER = { 1: 1, 2: 2, 3: 3, 4: 4, 5: 5 };
 const DEFAULT_PAYOUT_RATE = 0.80;
 const MIN_PAYOUT_RATE = 0.10;
-const MAX_PAYOUT_RATE = 0.90;
 const TRACK_GAMES = 10;
 
 const RING_SYMS_CFG = [
@@ -588,7 +602,6 @@ function buildGrid() {
   gridEl.innerHTML = '';
   gridEl.style.gridTemplateColumns = 'repeat(' + G_C + ', 1fr)';
   gridEl.style.gridTemplateRows = 'repeat(' + G_R + ', 1fr)';
-
   cellDom = [];
   for (let r = 0; r < G_R; r++) {
     cellDom[r] = [];
@@ -933,7 +946,7 @@ function doSpinLocal(betsObj, rollCount, user) {
   let winRate = user.payoutRate || DEFAULT_PAYOUT_RATE;
   if (user.adminSetRate && user.customPayoutRate != null)
     winRate = user.customPayoutRate / 100;
-  if (!user.adminSetRate) winRate = Math.max(0.01, Math.min(MAX_PAYOUT_RATE, winRate));
+  if (!user.adminSetRate) winRate = Math.max(0.01, winRate);
   else winRate = Math.max(0.01, winRate);
 
   const results = [];
@@ -993,7 +1006,7 @@ function doSpinLocal(betsObj, rollCount, user) {
   let newRate = user.payoutRate || DEFAULT_PAYOUT_RATE;
   if (!user.adminSetRate) {
     if (totalWin > 0) newRate = Math.max(MIN_PAYOUT_RATE, newRate - 0.05);
-    else newRate = Math.min(MAX_PAYOUT_RATE, newRate + 0.05);
+    else newRate = newRate + 0.05;
   }
 
   const newRG = (user.recentGames || []).slice();
