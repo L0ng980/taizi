@@ -1,0 +1,16 @@
+{
+  "name": "prince-tiger",
+  "version": "1.0.0",
+  "description": "太子老虎机 - 前后端分离版",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js"
+  },
+  "dependencies": {
+    "express": "^4.18.2",
+    "sql.js": "^1.10.3",
+    "bcryptjs": "^2.4.3",
+    "jsonwebtoken": "^9.0.2",
+    "cors": "^2.8.5"
+  }
+}
